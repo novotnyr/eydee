@@ -6,8 +6,11 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.logging.Logger;
 
 public class TagParser {
+	private static final Logger logger = Logger.getLogger(TagParser.class.getName());
+	
 	private static final int FRAME_HEADER_BYTES = 10;
 
 	public Tag parse(File mp3File) throws FileNotFoundException {
@@ -35,6 +38,10 @@ public class TagParser {
 			do {
 				byte[] frameHeaderBytes = Arrays.copyOfRange(wholeTagBuffer, pointer, pointer + FRAME_HEADER_BYTES);
 				FrameHeader frameHeader = new FrameHeader(frameHeaderBytes);
+				if(frameHeader.getFrameSize() == 0) {
+					break; 
+				}
+				
 				byte[] frameBytes = Arrays.copyOfRange(wholeTagBuffer, pointer + FRAME_HEADER_BYTES, pointer + FRAME_HEADER_BYTES + frameHeader.getFrameSize());
 				
 				handleFrame(frameHeader, frameBytes, tag);
@@ -44,7 +51,7 @@ public class TagParser {
 			return tag;
 		} catch (IOException e) {
 			throw new ID3ParseException("Cannot parse header due to I/O problems.", e);
-		}
+		} 
 		
 	}
 
@@ -53,21 +60,22 @@ public class TagParser {
 			if(frameHeader.getId().equals("TIT2")) {
 				TextFrame textFrame = new TextFrame(frameBytes);
 				tag.setTitle(textFrame.getContents());
-			}
-			if(frameHeader.getId().equals("TALB")) {
+				logger.fine("Parsed 'title/TIT2' attribute");
+			} else if(frameHeader.getId().equals("TALB")) {
 				TextFrame textFrame = new TextFrame(frameBytes);
 				tag.setAlbum(textFrame.getContents());
-			}
-			if(frameHeader.getId().equals("TPE1")) {
+				logger.fine("Parsed 'album/TALB' attribute");
+			} else if(frameHeader.getId().equals("TPE1")) {
 				TextFrame textFrame = new TextFrame(frameBytes);
 				tag.setArtist(textFrame.getContents());
-			}
-
-			if(frameHeader.getId().equals("TYER")) {
+				logger.fine("Parsed 'artist/TPE1' attribute");
+			} else if(frameHeader.getId().equals("TYER")) {
 				NumericStringFrame textFrame = new NumericStringFrame(frameBytes);
 				tag.setYear(textFrame.getValue());
+				logger.fine("Parsed 'year/TYER' attribute");
+			} else {
+				logger.fine("Unknown attribute '" + frameHeader.getId() + "'");
 			}
-
 
 			return tag;
 		} catch (ID3ParseException e) {
@@ -87,11 +95,5 @@ public class TagParser {
 			throw new ID3ParseException("Cannot parse header due to I/O problems.", e);
 		}
 		
-	}
-	
-	public static void main(String[] args) throws FileNotFoundException {
-		TagParser parser = new TagParser();
-		Tag tag = parser.parse(new File("d:/MP3/Kapela ze wsi Warszawa/2009 Infinity/(01) Pieœñ m¹drego dziecka [Wise Kid Song].mp3"));
-		System.out.println(tag);
 	}
 }
